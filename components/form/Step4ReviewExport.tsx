@@ -9,7 +9,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FiSave, FiFileText, FiFile, FiGrid } from "react-icons/fi";
+import { FiFileText, FiFile, FiGrid } from "react-icons/fi";
 import { generateExcel } from "@/lib/excel";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
@@ -70,7 +70,6 @@ export function Step4ReviewExport() {
   const [loadingBnPdf, setLoadingBnPdf] = useState(false);
   const [loadingOcPdf, setLoadingOcPdf] = useState(false);
   const [loadingExcel, setLoadingExcel] = useState(false);
-  const [loadingSave, setLoadingSave] = useState(false);
 
   /** Build a plain data object from the store (excludes actions). */
   function getFormData(): Record<FormFieldKey, string> {
@@ -150,39 +149,7 @@ export function Step4ReviewExport() {
     }
   }
 
-  /** Save transaction to the database. */
-  async function handleSaveTransaction() {
-    setLoadingSave(true);
-    try {
-      const data = getFormData();
-      const res = await fetch("/api/transactions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(
-          (err as { error?: string }).error || "Failed to save transaction"
-        );
-      }
-
-      toast.success("Transaction saved successfully");
-      store.resetForm();
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to save transaction"
-      );
-    } finally {
-      setLoadingSave(false);
-    }
-  }
-
-  const anyLoading = loadingBnPdf || loadingOcPdf || loadingExcel || loadingSave;
+  const anyLoading = loadingBnPdf || loadingOcPdf || loadingExcel;
 
   return (
     <div className="space-y-6">
@@ -246,18 +213,6 @@ export function Step4ReviewExport() {
 
       {/* Action buttons — horizontal row at md+, stacked full-width on mobile */}
       <div className="flex flex-col gap-2 md:flex-row md:gap-3">
-        <Button
-          className="w-full min-h-[48px] md:w-auto"
-          disabled={anyLoading}
-          onClick={handleSaveTransaction}
-        >
-          {loadingSave ? (
-            <span className="mr-1.5 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-          ) : (
-            <FiSave className="mr-1.5 h-4 w-4" />
-          )}
-          Save Transaction
-        </Button>
         <Button
           className="w-full min-h-[48px] md:w-auto bg-purple-600 hover:bg-purple-700 text-white"
           disabled={anyLoading}

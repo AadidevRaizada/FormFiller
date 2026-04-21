@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { FiCheck, FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { FiCheck, FiChevronLeft, FiChevronRight, FiSend } from "react-icons/fi";
 import { Step1TransactionDetails } from "./Step1TransactionDetails";
 import { Step2BunkerNomination } from "./Step2BunkerNomination";
 import { Step3OrderConfirmation } from "./Step3OrderConfirmation";
@@ -15,6 +15,9 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth-context";
+import { useFormStore, type FormFieldKey } from "@/lib/store";
+import { toast } from "sonner";
 
 /**
  * Interface that each step component (Steps 1-3) must implement via
@@ -35,6 +38,32 @@ const STEPS = [
   { number: 3, title: "Order Confirmation", description: "Enter buyer-specific details" },
   { number: 4, title: "Review & Export", description: "Review your data and generate documents" },
 ] as const;
+
+const formFieldKeys: FormFieldKey[] = [
+  "date",
+  "vesselNameImo",
+  "port",
+  "eta",
+  "product",
+  "quantity",
+  "deliveryMode",
+  "agents",
+  "physicalSupplier",
+  "signatory",
+  "bn_to",
+  "bn_attn",
+  "bn_sellers",
+  "bn_suppliers",
+  "bn_buyingPrice",
+  "bn_paymentTerms",
+  "bn_remarks",
+  "oc_to",
+  "oc_attn",
+  "oc_buyers",
+  "oc_sellingPrice",
+  "oc_paymentTerms",
+  "oc_remarks",
+];
 
 /* -------------------------------------------------------------------------- */
 /*  StepProgressIndicator                                                     */
@@ -116,13 +145,16 @@ function StickyActionBar({
   currentStep,
   onBack,
   onNext,
+  isSubmitting,
 }: {
   currentStep: number;
   onBack: () => void;
   onNext: () => void;
+  isSubmitting: boolean;
 }) {
   const showBack = currentStep > 1;
   const showNext = currentStep < 4;
+  const isSubmitStep = currentStep === 3;
 
   // Step 4 has its own action buttons inside Step4ReviewExport — no sticky bar needed
   if (currentStep === 4 && !showBack) return null;
@@ -136,6 +168,7 @@ function StickyActionBar({
             <Button
               variant="outline"
               onClick={onBack}
+              disabled={isSubmitting}
               className="w-full min-h-[48px] md:w-auto"
             >
               <FiChevronLeft className="mr-1 h-4 w-4" />
@@ -144,15 +177,30 @@ function StickyActionBar({
           )}
         </div>
 
-        {/* Right side — Next button */}
+        {/* Right side — Next / Submit button */}
         <div className="order-1 flex flex-col gap-2 md:order-2 md:flex-row">
           {showNext && (
             <Button
               onClick={onNext}
+              disabled={isSubmitting}
               className="w-full min-h-[48px] md:w-auto"
             >
-              Next
-              <FiChevronRight className="ml-1 h-4 w-4" />
+              {isSubmitting ? (
+                <>
+                  <span className="mr-1.5 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Saving…
+                </>
+              ) : isSubmitStep ? (
+                <>
+                  Submit
+                  <FiSend className="ml-1 h-4 w-4" />
+                </>
+              ) : (
+                <>
+                  Next
+                  <FiChevronRight className="ml-1 h-4 w-4" />
+                </>
+              )}
             </Button>
           )}
         </div>
@@ -171,6 +219,8 @@ export function FormShell() {
   const initialStep = stepParam ? Math.min(Math.max(Number(stepParam), 1), 4) || 1 : 1;
 
   const [currentStep, setCurrentStep] = useState(initialStep);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { token } = useAuth();
 
   /**
    * Ref to the active step component's imperative handle.
@@ -183,15 +233,49 @@ export function FormShell() {
     if (currentStep >= 4) return;
 
     // If the current step component exposes a validate() method, call it.
-    // Validation failure means the step component has already scrolled to
-    // the first invalid field and shown FormMessage errors — we just stay put.
     if (stepRef.current) {
       const isValid = await stepRef.current.validate();
       if (!isValid) return;
     }
 
+    // On step 3, save the transaction before advancing to the review page.
+    if (currentStep === 3) {
+      setIsSubmitting(true);
+      try {
+        const storeState = useFormStore.getState();
+        const data = {} as Record<FormFieldKey, string>;
+        for (const key of formFieldKeys) {
+          data[key] = storeState[key];
+        }
+
+        const res = await fetch("/api/transactions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(data),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(
+            (err as { error?: string }).error || "Failed to save transaction"
+          );
+        }
+
+        toast.success("Transaction saved successfully");
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to save transaction"
+        );
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+
     setCurrentStep((s) => s + 1);
-  }, [currentStep]);
+  }, [currentStep, token]);
 
   const handleBack = useCallback(() => {
     // Back navigation never validates — data is already persisted in Zustand.
@@ -214,13 +298,6 @@ export function FormShell() {
           <CardDescription>{step.description}</CardDescription>
         </CardHeader>
         <CardContent>
-          {/*
-           * Placeholder content — real step components (Task 7) will replace
-           * these and receive `ref={stepRef}` so FormShell can call validate().
-           *
-           * Example future usage:
-           *   {currentStep === 1 && <Step1TransactionDetails ref={stepRef} />}
-           */}
           {currentStep === 1 && (
             <Step1TransactionDetails ref={stepRef} />
           )}
@@ -241,6 +318,7 @@ export function FormShell() {
         currentStep={currentStep}
         onBack={handleBack}
         onNext={handleNext}
+        isSubmitting={isSubmitting}
       />
     </div>
   );

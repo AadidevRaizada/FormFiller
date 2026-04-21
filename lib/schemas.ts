@@ -14,23 +14,23 @@ export const step1Schema = z.object({
   signatory: z.string().optional().default("Sahir Jamal"),
 });
 
-// Step 2 — Bunker Nomination
+// Step 2 — Bunker Nomination (all fields optional)
 export const step2Schema = z.object({
-  bn_to: z.string().min(1, "To is required"),
-  bn_attn: z.string().min(1, "Attn is required"),
-  bn_sellers: z.string().min(1, "Sellers is required"),
+  bn_to: z.string().optional(),
+  bn_attn: z.string().optional(),
+  bn_sellers: z.string().optional(),
   bn_suppliers: z.string().optional(),
-  bn_buyingPrice: z.string().min(1, "Buying Price is required"),
+  bn_buyingPrice: z.string().optional(),
   bn_paymentTerms: z.string().optional(),
   bn_remarks: z.string().optional(),
 });
 
-// Step 3 — Order Confirmation
+// Step 3 — Order Confirmation (all fields optional)
 export const step3Schema = z.object({
-  oc_to: z.string().min(1, "To is required"),
-  oc_attn: z.string().min(1, "Attn is required"),
-  oc_buyers: z.string().min(1, "Buyers is required"),
-  oc_sellingPrice: z.string().min(1, "Selling Price is required"),
+  oc_to: z.string().optional(),
+  oc_attn: z.string().optional(),
+  oc_buyers: z.string().optional(),
+  oc_sellingPrice: z.string().optional(),
   oc_paymentTerms: z.string().optional(),
   oc_remarks: z.string().optional(),
 });
