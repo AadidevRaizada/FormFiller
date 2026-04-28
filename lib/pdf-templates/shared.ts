@@ -105,16 +105,16 @@ export const SHARED_CSS = `
     height: 14.5pt;
   }
 
-  /* Field row: indent(36pt) | label(56.25pt) | colon(36pt) | value(flex) */
+  /* Field row: indent(36pt) | label(100pt fixed) | colon(36pt) | value(flex) */
   .fr {
     display: flex;
     line-height: 14.5pt;
     min-height: 14.5pt;
   }
-  .fi { width: 36pt;    flex-shrink: 0; }                       /* col A — indent   */
-  .fl { min-width: 56.25pt; flex-shrink: 0; font-weight: bold;
-        white-space: nowrap; padding-right: 4pt; }              /* col B — label    */
-  .fc { width: 36pt;    flex-shrink: 0; text-align: right; padding-right: 3pt; }  /* col C — colon    */
+  .fi { width: 36pt;   flex-shrink: 0; }                        /* col A — indent   */
+  .fl { width: 100pt;  flex-shrink: 0; font-weight: bold;
+        white-space: nowrap; padding-right: 4pt; }              /* col B — label (fixed so all colons align) */
+  .fc { width: 36pt;   flex-shrink: 0; text-align: right; padding-right: 3pt; }  /* col C — colon    */
   .fv { flex: 1; }                                  /* col D+ — value   */
 
   /* Tagline (B20): bold full-width */
