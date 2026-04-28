@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FiFileText, FiFile, FiGrid } from "react-icons/fi";
-import { generateExcel } from "@/lib/excel";
+import { generateExcel, generateOCExcel } from "@/lib/excel";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 
@@ -69,7 +69,8 @@ export function Step4ReviewExport() {
 
   const [loadingBnPdf, setLoadingBnPdf] = useState(false);
   const [loadingOcPdf, setLoadingOcPdf] = useState(false);
-  const [loadingExcel, setLoadingExcel] = useState(false);
+  const [loadingBnExcel, setLoadingBnExcel] = useState(false);
+  const [loadingOcExcel, setLoadingOcExcel] = useState(false);
 
   /** Build a plain data object from the store (excludes actions). */
   function getFormData(): Record<FormFieldKey, string> {
@@ -135,21 +136,35 @@ export function Step4ReviewExport() {
     }
   }
 
-  /** Download Excel export. */
-  async function handleDownloadExcel() {
-    setLoadingExcel(true);
+  /** Download BN Excel export. */
+  async function handleDownloadBnExcel() {
+    setLoadingBnExcel(true);
     try {
       const data = getFormData();
       await generateExcel(data);
-      toast.success("Excel file downloaded");
+      toast.success("BN Excel file downloaded");
     } catch {
-      toast.error("Failed to generate Excel file");
+      toast.error("Failed to generate BN Excel file");
     } finally {
-      setLoadingExcel(false);
+      setLoadingBnExcel(false);
     }
   }
 
-  const anyLoading = loadingBnPdf || loadingOcPdf || loadingExcel;
+  /** Download OC Excel export. */
+  async function handleDownloadOcExcel() {
+    setLoadingOcExcel(true);
+    try {
+      const data = getFormData();
+      await generateOCExcel(data);
+      toast.success("OC Excel file downloaded");
+    } catch {
+      toast.error("Failed to generate OC Excel file");
+    } finally {
+      setLoadingOcExcel(false);
+    }
+  }
+
+  const anyLoading = loadingBnPdf || loadingOcPdf || loadingBnExcel || loadingOcExcel;
 
   return (
     <div className="space-y-6">
@@ -240,14 +255,26 @@ export function Step4ReviewExport() {
         <Button
           className="w-full min-h-[48px] md:w-auto bg-green-600 hover:bg-green-700 text-white"
           disabled={anyLoading}
-          onClick={handleDownloadExcel}
+          onClick={handleDownloadBnExcel}
         >
-          {loadingExcel ? (
+          {loadingBnExcel ? (
             <span className="mr-1.5 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
           ) : (
             <FiGrid className="mr-1.5 h-4 w-4" />
           )}
-          Download Excel
+          Download BN Excel
+        </Button>
+        <Button
+          className="w-full min-h-[48px] md:w-auto bg-teal-600 hover:bg-teal-700 text-white"
+          disabled={anyLoading}
+          onClick={handleDownloadOcExcel}
+        >
+          {loadingOcExcel ? (
+            <span className="mr-1.5 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          ) : (
+            <FiGrid className="mr-1.5 h-4 w-4" />
+          )}
+          Download OC Excel
         </Button>
       </div>
     </div>

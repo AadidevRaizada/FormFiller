@@ -66,9 +66,13 @@ export interface FormState {
   oc_paymentTerms: string;
   oc_remarks: string;
 
+  // Editing context (not persisted — resets on page reload)
+  editingTransactionId: string | null;
+
   // Actions
   setField: (field: FormFieldKey, value: string) => void;
   setAllFields: (data: Partial<Record<FormFieldKey, string>>) => void;
+  setEditingTransactionId: (id: string | null) => void;
   resetForm: () => void;
 }
 
@@ -76,15 +80,24 @@ export const useFormStore = create<FormState>()(
   persist(
     (set) => ({
       ...initialFields,
+      editingTransactionId: null,
 
       setField: (field, value) => set({ [field]: value }),
 
       setAllFields: (data) => set((state) => ({ ...state, ...data })),
 
+      setEditingTransactionId: (id) => set({ editingTransactionId: id }),
+
       resetForm: () => set(initialFields),
     }),
     {
       name: "asean-form-store",
+      partialize: (state) => {
+        // Exclude editingTransactionId from persistence so it resets on page reload
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { editingTransactionId, setField, setAllFields, setEditingTransactionId, resetForm, ...persisted } = state;
+        return persisted;
+      },
     },
   ),
 );

@@ -1,57 +1,76 @@
 import { NextRequest, NextResponse } from "next/server";
-import { renderToBuffer } from "@react-pdf/renderer";
-import BunkerNominationDocument from "@/components/pdf/BunkerNominationDocument";
-import OrderConfirmationDocument from "@/components/pdf/OrderConfirmationDocument";
-import type { BunkerNominationDocumentProps } from "@/components/pdf/BunkerNominationDocument";
-import type { OrderConfirmationDocumentProps } from "@/components/pdf/OrderConfirmationDocument";
+import { buildOCHtml } from "@/lib/pdf-templates/oc";
+import { buildBNHtml } from "@/lib/pdf-templates/bn";
+import type { PdfTemplateData } from "@/lib/pdf-templates/shared";
 
-/**
- * Sanitize a string for use in a filename.
- * Extracts the first word and removes non-alphanumeric characters.
- */
+export const maxDuration = 30;
+
 function sanitizeForFilename(value: string): string {
   const firstWord = value.trim().split(/\s+/)[0] || "Unknown";
   return firstWord.replace(/[^a-zA-Z0-9_-]/g, "");
 }
 
+async function launchBrowser() {
+  // On Vercel (Lambda), use @sparticuz/chromium to get the executable path.
+  // Locally, puppeteer-core finds the system/bundled Chromium automatically.
+  if (process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.VERCEL) {
+    const chromium = (await import("@sparticuz/chromium")).default;
+    const puppeteer = (await import("puppeteer-core")).default;
+    return puppeteer.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    });
+  }
+
+  // Local development — use the system Chrome/Chromium or bundled Chromium
+  const puppeteer = (await import("puppeteer-core")).default;
+  const executablePath =
+    process.env.PUPPETEER_EXECUTABLE_PATH ||
+    (process.platform === "win32"
+      ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+      : process.platform === "darwin"
+      ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+      : "/usr/bin/google-chrome");
+
+  return puppeteer.launch({
+    executablePath,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    headless: true,
+  });
+}
+
 export async function POST(request: NextRequest) {
+  let browser;
   try {
     const body = await request.json();
-    const { type, data } = body as {
-      type: "bn" | "oc";
-      data: BunkerNominationDocumentProps & OrderConfirmationDocumentProps;
-    };
+    const { type, data } = body as { type: "bn" | "oc"; data: PdfTemplateData };
 
-    if (!type || !data) {
-      return NextResponse.json(
-        { error: "Missing required fields: type and data" },
-        { status: 400 }
-      );
+    if (!type || !data || (type !== "bn" && type !== "oc")) {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    if (type !== "bn" && type !== "oc") {
-      return NextResponse.json(
-        { error: "Invalid type. Must be 'bn' or 'oc'" },
-        { status: 400 }
-      );
-    }
-
+    const html = type === "oc" ? buildOCHtml(data) : buildBNHtml(data);
     const vesselName = sanitizeForFilename(data.vesselNameImo || "Unknown");
+    const filename =
+      type === "oc"
+        ? `OrderConfirmation_${vesselName}.pdf`
+        : `BunkerNomination_${vesselName}.pdf`;
 
-    let pdfBuffer: Buffer;
-    let filename: string;
+    browser = await launchBrowser();
+    const page = await browser.newPage();
 
-    if (type === "bn") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      pdfBuffer = await renderToBuffer(BunkerNominationDocument(data) as any);
-      filename = `BunkerNomination_${vesselName}.pdf`;
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      pdfBuffer = await renderToBuffer(OrderConfirmationDocument(data) as any);
-      filename = `OrderConfirmation_${vesselName}.pdf`;
-    }
+    await page.setContent(html, { waitUntil: "networkidle0", timeout: 20000 });
 
-    return new NextResponse(new Uint8Array(pdfBuffer), {
+    // Margins and paper size are controlled by @page CSS in the templates.
+    // Puppeteer margin must be 0 to avoid double-applying margins.
+    const pdfBuffer = await page.pdf({
+      printBackground: true,
+      margin: { top: "0", bottom: "0", left: "0", right: "0" },
+      preferCSSPageSize: true,
+    });
+
+    return new NextResponse(Buffer.from(pdfBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
@@ -60,9 +79,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("PDF generation failed:", error);
-    return NextResponse.json(
-      { error: "Failed to generate PDF" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to generate PDF" }, { status: 500 });
+  } finally {
+    await browser?.close();
   }
 }

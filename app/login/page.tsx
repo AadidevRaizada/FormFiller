@@ -51,7 +51,7 @@ export default function LoginPage() {
   // Redirect to form if already logged in
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace("/form");
+      router.replace("/history");
     }
   }, [user, isLoading, router]);
 
@@ -93,7 +93,7 @@ export default function LoginPage() {
 
       login(data.token, data.user);
       toast.success(mode === "login" ? "Welcome back!" : "Account created successfully!");
-      router.push("/form");
+      router.push("/history");
     } catch {
       setError("Network error. Please try again.");
     } finally {

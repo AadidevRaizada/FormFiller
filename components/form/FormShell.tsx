@@ -248,8 +248,12 @@ export function FormShell() {
           data[key] = storeState[key];
         }
 
-        const res = await fetch("/api/transactions", {
-          method: "POST",
+        const editingId = storeState.editingTransactionId;
+        const url = editingId ? `/api/transactions/${editingId}` : "/api/transactions";
+        const method = editingId ? "PUT" : "POST";
+
+        const res = await fetch(url, {
+          method,
           headers: {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -264,7 +268,8 @@ export function FormShell() {
           );
         }
 
-        toast.success("Transaction saved successfully");
+        storeState.setEditingTransactionId(null);
+        toast.success(editingId ? "Transaction updated successfully" : "Transaction saved successfully");
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Failed to save transaction"
