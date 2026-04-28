@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { useFormStore } from "@/lib/store";
 
 interface AuthUser {
   email: string;
@@ -43,7 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback((newToken: string, newUser: AuthUser) => {
-    // Clear any previous user's form data before setting new user
+    // Reset in-memory and persisted form data so previous user's data is never visible
+    useFormStore.getState().resetForm();
     localStorage.removeItem("asean-form-store");
 
     setToken(newToken);
@@ -53,11 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    // Reset in-memory and persisted form data on sign-out
+    useFormStore.getState().resetForm();
     setToken(null);
     setUser(null);
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
-    // Clear the Zustand persisted form data so next user starts fresh
     localStorage.removeItem("asean-form-store");
   }, []);
 
