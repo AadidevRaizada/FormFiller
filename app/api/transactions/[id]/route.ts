@@ -83,9 +83,29 @@ export async function PUT(
     const db = client.db(DB_NAME);
     const collection = db.collection(COLLECTION_NAME);
 
+    // Fetch the current document to create a version snapshot before overwriting
+    const current = await collection.findOne({ _id: objectId, userEmail });
+    if (!current) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    // Build snapshot: strip metadata fields
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _id: _id_, versions: _versions, createdAt: _ca, updatedAt: _ua, userEmail: _ue, versionNumber: _vn, ...snapshot } = current;
+    const currentVersionNumber = current.versionNumber ?? 1;
+    const newVersionEntry = {
+      versionNumber: currentVersionNumber,
+      savedAt: new Date(),
+      snapshot,
+    };
+
     const result = await collection.updateOne(
       { _id: objectId, userEmail },
-      { $set: { ...body, updatedAt: new Date() } }
+      {
+        $set: { ...body, updatedAt: new Date(), versionNumber: currentVersionNumber + 1 },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        $push: { versions: newVersionEntry } as any,
+      }
     );
 
     if (result.matchedCount === 0) {

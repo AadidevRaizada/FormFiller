@@ -13,6 +13,18 @@ function fr(label: string, value: string): string {
   return `<div class="fr"><div class="fi"></div><div class="fl">${label}</div><div class="fc">:</div><div class="fv">${value || ""}</div></div>`;
 }
 
+function buildOcRemarks(base: string, data: PdfTemplateData): string {
+  const extras: string[] = [];
+  if (data.product2) {
+    extras.push(`Product 2: ${data.product2} | Qty: ${data.quantity2 || ""} | Price: ${data.oc_sellingPrice2 || ""}`);
+  }
+  if (data.product3) {
+    extras.push(`Product 3: ${data.product3} | Qty: ${data.quantity3 || ""} | Price: ${data.oc_sellingPrice3 || ""}`);
+  }
+  if (!extras.length) return base || "-";
+  return [base || "-", ...extras].join("<br>");
+}
+
 function ocPage1(data: PdfTemplateData, logoSrc: string): string {
   const {
     date, vesselNameImo, port, eta, product, quantity, deliveryMode,
@@ -90,7 +102,7 @@ function ocPage1(data: PdfTemplateData, logoSrc: string): string {
     <div class="r"></div>
 
     <!-- Row 40: Remarks -->
-    ${fr("Remarks:", oc_remarks || "-")}
+    ${fr("Remarks:", buildOcRemarks(oc_remarks, data))}
 
     <!-- Row 41: blank -->
     <div class="r"></div>

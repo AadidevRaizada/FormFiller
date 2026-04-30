@@ -15,6 +15,13 @@ const initialFields = {
   physicalSupplier: "",
   signatory: "",
 
+  // Step 1 — Multi-product
+  productCount: "1",
+  product2: "",
+  quantity2: "",
+  product3: "",
+  quantity3: "",
+
   // Step 2 — Bunker Nomination
   bn_to: "",
   bn_attn: "",
@@ -24,6 +31,10 @@ const initialFields = {
   bn_paymentTerms: "",
   bn_remarks: "",
 
+  // Step 2 — Multi-product buying prices
+  bn_buyingPrice2: "",
+  bn_buyingPrice3: "",
+
   // Step 3 — Order Confirmation
   oc_to: "",
   oc_attn: "",
@@ -31,6 +42,10 @@ const initialFields = {
   oc_sellingPrice: "",
   oc_paymentTerms: "",
   oc_remarks: "",
+
+  // Step 3 — Multi-product selling prices
+  oc_sellingPrice2: "",
+  oc_sellingPrice3: "",
 } as const;
 
 /** The keys that represent form data (excludes actions). */
@@ -49,6 +64,13 @@ export interface FormState {
   physicalSupplier: string;
   signatory: string;
 
+  // Step 1 — Multi-product
+  productCount: string;
+  product2: string;
+  quantity2: string;
+  product3: string;
+  quantity3: string;
+
   // Step 2 — Bunker Nomination
   bn_to: string;
   bn_attn: string;
@@ -58,6 +80,10 @@ export interface FormState {
   bn_paymentTerms: string;
   bn_remarks: string;
 
+  // Step 2 — Multi-product buying prices
+  bn_buyingPrice2: string;
+  bn_buyingPrice3: string;
+
   // Step 3 — Order Confirmation
   oc_to: string;
   oc_attn: string;
@@ -65,6 +91,10 @@ export interface FormState {
   oc_sellingPrice: string;
   oc_paymentTerms: string;
   oc_remarks: string;
+
+  // Step 3 — Multi-product selling prices
+  oc_sellingPrice2: string;
+  oc_sellingPrice3: string;
 
   // Editing context (not persisted — resets on page reload)
   editingTransactionId: string | null;
@@ -93,7 +123,7 @@ export const useFormStore = create<FormState>()(
     {
       name: "asean-form-store",
       partialize: (state) => {
-        // Exclude editingTransactionId from persistence so it resets on page reload
+        // Exclude editingTransactionId and actions from persistence
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { editingTransactionId, setField, setAllFields, setEditingTransactionId, resetForm, ...persisted } = state;
         return persisted;

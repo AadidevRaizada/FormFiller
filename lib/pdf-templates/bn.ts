@@ -10,6 +10,18 @@ function fr(label: string, value: string): string {
   return `<div class="fr"><div class="fi"></div><div class="fl">${label}</div><div class="fc">:</div><div class="fv">${value || ""}</div></div>`;
 }
 
+function buildBnRemarks(base: string, data: PdfTemplateData): string {
+  const extras: string[] = [];
+  if (data.product2) {
+    extras.push(`Product 2: ${data.product2} | Qty: ${data.quantity2 || ""} | Price: ${data.bn_buyingPrice2 || ""}`);
+  }
+  if (data.product3) {
+    extras.push(`Product 3: ${data.product3} | Qty: ${data.quantity3 || ""} | Price: ${data.bn_buyingPrice3 || ""}`);
+  }
+  if (!extras.length) return base || "-";
+  return [base || "-", ...extras].join("<br>");
+}
+
 function bnPage1(data: PdfTemplateData, logoSrc: string): string {
   const {
     date, vesselNameImo, port, eta, product, quantity, deliveryMode,
@@ -91,8 +103,8 @@ function bnPage1(data: PdfTemplateData, logoSrc: string): string {
     <!-- Row 41: blank -->
     <div class="r"></div>
 
-    <!-- Row 42: Remarks -->
-    ${fr("Remarks", bn_remarks || "-")}
+    <!-- Row 42: Remarks (includes extra product lines when multi-product) -->
+    ${fr("Remarks", buildBnRemarks(bn_remarks, data))}
 
     <!-- Rows 43–44: blank -->
     <div class="r"></div><div class="r"></div>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   FiRefreshCw,
   FiRepeat,
+  FiEdit2,
   FiLoader,
   FiAlertCircle,
   FiSearch,
@@ -13,6 +14,9 @@ import {
   FiX,
   FiCheck,
   FiTrash2,
+  FiClock,
+  FiChevronDown,
+  FiChevronUp,
 } from "react-icons/fi";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,7 +26,83 @@ import { useFormStore } from "@/lib/store";
 import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
-import type { TransactionRecord } from "@/types/transaction";
+import type { TransactionRecord, TransactionVersion } from "@/types/transaction";
+
+/* -------------------------------------------------------------------------- */
+/*  Field label map for changelog display                                     */
+/* -------------------------------------------------------------------------- */
+
+const FIELD_LABELS: Record<string, string> = {
+  date: "Date",
+  vesselNameImo: "Vessel / IMO",
+  port: "Port",
+  eta: "ETA",
+  product: "Product 1",
+  quantity: "Quantity 1",
+  deliveryMode: "Delivery Mode",
+  agents: "Agents",
+  physicalSupplier: "Physical Supplier",
+  signatory: "Signatory",
+  productCount: "Product Count",
+  product2: "Product 2",
+  quantity2: "Quantity 2",
+  product3: "Product 3",
+  quantity3: "Quantity 3",
+  bn_to: "BN – To",
+  bn_attn: "BN – Attn",
+  bn_sellers: "BN – Sellers",
+  bn_suppliers: "BN – Suppliers",
+  bn_buyingPrice: "Buying Price 1",
+  bn_paymentTerms: "BN – Payment Terms",
+  bn_remarks: "BN – Remarks",
+  bn_buyingPrice2: "Buying Price 2",
+  bn_buyingPrice3: "Buying Price 3",
+  oc_to: "OC – To",
+  oc_attn: "OC – Attn",
+  oc_buyers: "OC – Buyers",
+  oc_sellingPrice: "Selling Price 1",
+  oc_paymentTerms: "OC – Payment Terms",
+  oc_remarks: "OC – Remarks",
+  oc_sellingPrice2: "Selling Price 2",
+  oc_sellingPrice3: "Selling Price 3",
+};
+
+const CHANGELOG_KEYS = Object.keys(FIELD_LABELS);
+
+/* -------------------------------------------------------------------------- */
+/*  Helpers                                                                   */
+/* -------------------------------------------------------------------------- */
+
+function formatSavedAt(savedAt: Date | string): string {
+  const d = new Date(savedAt);
+  return d.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** Build list of changed fields between snapshot and current tx. */
+function buildChangelog(
+  snapshot: Record<string, string>,
+  current: TransactionRecord
+): Array<{ label: string; oldVal: string; newVal: string }> {
+  const changes: Array<{ label: string; oldVal: string; newVal: string }> = [];
+  for (const key of CHANGELOG_KEYS) {
+    const oldVal = (snapshot[key] as string) ?? "";
+    const newVal = ((current as unknown as Record<string, string>)[key] as string) ?? "";
+    if (oldVal !== newVal) {
+      changes.push({ label: FIELD_LABELS[key] ?? key, oldVal, newVal });
+    }
+  }
+  return changes;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Page entry                                                                */
+/* -------------------------------------------------------------------------- */
 
 export default function HistoryPage() {
   return (
@@ -31,6 +111,10 @@ export default function HistoryPage() {
     </AuthGuard>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/*  HistoryContent                                                            */
+/* -------------------------------------------------------------------------- */
 
 function HistoryContent() {
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
@@ -48,8 +132,12 @@ function HistoryContent() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteInProgress, setDeleteInProgress] = useState(false);
 
-  // Re-export dialog state
-  const [reexportEntry, setReexportEntry] = useState<TransactionRecord | null>(null);
+  // Version history state
+  const [expandedVersionId, setExpandedVersionId] = useState<string | null>(null);
+  const [viewingVersion, setViewingVersion] = useState<{
+    tx: TransactionRecord;
+    version: TransactionVersion;
+  } | null>(null);
 
   const filterRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +146,7 @@ function HistoryContent() {
   const { token } = useAuth();
   const router = useRouter();
 
-  // Close dropdown on outside click or Escape
+  // Close dropdown / modals on outside click or Escape
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
@@ -68,8 +156,8 @@ function HistoryContent() {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         setFilterOpen(false);
-        setReexportEntry(null);
         setDeletingId(null);
+        setViewingVersion(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -163,17 +251,27 @@ function HistoryContent() {
     setAllFields(formData);
   }
 
-  function handleReexportAsIs(tx: TransactionRecord) {
+  function handleReexport(tx: TransactionRecord) {
     populateStore(tx);
     if (tx._id) setEditingTransactionId(tx._id);
-    setReexportEntry(null);
-    router.push("/form?step=4");
+    router.push("/export");
   }
 
-  function handleReexportWithChanges(tx: TransactionRecord) {
+  function handleMakeChanges(tx: TransactionRecord) {
     populateStore(tx);
     if (tx._id) setEditingTransactionId(tx._id);
-    setReexportEntry(null);
+    router.push("/form?step=1");
+  }
+
+  // ── Version restore ────────────────────────────────────────────────────────
+  function handleRestoreVersion(tx: TransactionRecord, version: TransactionVersion) {
+    const snap = version.snapshot as unknown as TransactionRecord;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _id: _a, createdAt: _b, ...formData } = snap;
+    setAllFields(formData);
+    if (tx._id) setEditingTransactionId(tx._id);
+    setViewingVersion(null);
+    toast.success(`Restoring Version ${version.versionNumber}…`);
     router.push("/form?step=1");
   }
 
@@ -363,121 +461,236 @@ function HistoryContent() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {filteredTransactions.map((tx, idx) => (
-            <Card key={tx._id ?? idx}>
-              <CardHeader>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="text-base">{tx.vesselNameImo}</CardTitle>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="min-h-[48px] w-full sm:w-auto"
-                      onClick={() => setReexportEntry(tx)}
-                    >
-                      <FiRepeat className="mr-1.5 h-4 w-4" />
-                      Re-export
-                    </Button>
-                    {deletingId === tx._id ? (
-                      <div className="flex flex-col gap-2 sm:flex-row">
-                        <span className="self-center text-sm text-muted-foreground whitespace-nowrap">Delete this entry?</span>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="min-h-[48px] flex-1 sm:flex-none"
-                            onClick={() => setDeletingId(null)}
-                            disabled={deleteInProgress}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="min-h-[48px] flex-1 sm:flex-none"
-                            onClick={handleDeleteConfirm}
-                            disabled={deleteInProgress}
-                          >
-                            {deleteInProgress ? (
-                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                            ) : (
-                              "Confirm"
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
+          {filteredTransactions.map((tx, idx) => {
+            const txId = tx._id ?? String(idx);
+            const hasVersions = (tx.versions?.length ?? 0) > 0;
+            const versionsOpen = expandedVersionId === txId;
+
+            return (
+              <Card key={txId}>
+                <CardHeader>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <CardTitle className="text-base">{tx.vesselNameImo}</CardTitle>
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="min-h-[48px] w-full sm:w-auto text-destructive hover:text-destructive hover:border-destructive"
-                        onClick={() => setDeletingId(tx._id ?? null)}
+                        className="min-h-[48px] w-full sm:w-auto"
+                        onClick={() => handleMakeChanges(tx)}
                       >
-                        <FiTrash2 className="mr-1.5 h-4 w-4" />
-                        Delete
+                        <FiEdit2 className="mr-1.5 h-4 w-4" />
+                        Make changes
                       </Button>
-                    )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="min-h-[48px] w-full sm:w-auto"
+                        onClick={() => handleReexport(tx)}
+                      >
+                        <FiRepeat className="mr-1.5 h-4 w-4" />
+                        Re-export
+                      </Button>
+                      {deletingId === txId ? (
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <span className="self-center text-sm text-muted-foreground whitespace-nowrap">Delete this entry?</span>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="min-h-[48px] flex-1 sm:flex-none"
+                              onClick={() => setDeletingId(null)}
+                              disabled={deleteInProgress}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="min-h-[48px] flex-1 sm:flex-none"
+                              onClick={handleDeleteConfirm}
+                              disabled={deleteInProgress}
+                            >
+                              {deleteInProgress ? (
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                              ) : (
+                                "Confirm"
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="min-h-[48px] w-full sm:w-auto text-destructive hover:text-destructive hover:border-destructive"
+                          onClick={() => setDeletingId(txId)}
+                        >
+                          <FiTrash2 className="mr-1.5 h-4 w-4" />
+                          Delete
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm md:grid-cols-4">
-                  <div>
-                    <span className="text-muted-foreground">Port</span>
-                    <p className="font-medium">{tx.port}</p>
+                </CardHeader>
+
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm md:grid-cols-4">
+                    <div>
+                      <span className="text-muted-foreground">Port</span>
+                      <p className="font-medium">{tx.port}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Date</span>
+                      <p className="font-medium">{tx.date}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Buyer</span>
+                      <p className="font-medium">{tx.oc_to}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Supplier</span>
+                      <p className="font-medium">{tx.bn_to}</p>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Date</span>
-                    <p className="font-medium">{tx.date}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Buyer</span>
-                    <p className="font-medium">{tx.oc_to}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Supplier</span>
-                    <p className="font-medium">{tx.bn_to}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+
+                  {/* Version history toggle */}
+                  {hasVersions && (
+                    <div className="mt-4 border-t border-border/40 pt-3">
+                      <button
+                        onClick={() =>
+                          setExpandedVersionId(versionsOpen ? null : txId)
+                        }
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <FiClock className="h-3.5 w-3.5" />
+                        Version history ({tx.versions!.length})
+                        {versionsOpen ? (
+                          <FiChevronUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <FiChevronDown className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+
+                      {versionsOpen && (
+                        <div className="mt-3 flex flex-col gap-2">
+                          {[...tx.versions!]
+                            .sort((a, b) => b.versionNumber - a.versionNumber)
+                            .map((v) => (
+                              <div
+                                key={v.versionNumber}
+                                className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2"
+                              >
+                                <div className="text-sm">
+                                  <span className="font-medium">Version {v.versionNumber}</span>
+                                  <span className="ml-2 text-xs text-muted-foreground">
+                                    · {formatSavedAt(v.savedAt)}
+                                  </span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 text-xs"
+                                  onClick={() => setViewingVersion({ tx, version: v })}
+                                >
+                                  View
+                                </Button>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
-      {/* Re-export dialog */}
-      {reexportEntry && (
+      {/* ── Version detail modal ─────────────────────────────────────────── */}
+      {viewingVersion && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-          onClick={(e) => { if (e.target === e.currentTarget) setReexportEntry(null); }}
+          onClick={(e) => { if (e.target === e.currentTarget) setViewingVersion(null); }}
         >
-          <Card className="w-full max-w-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Re-export this entry?</CardTitle>
-              <p className="text-sm text-muted-foreground">{reexportEntry.vesselNameImo}</p>
+          <Card className="w-full max-w-lg max-h-[80vh] flex flex-col">
+            <CardHeader className="flex-shrink-0">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <CardTitle className="text-base">
+                    Version {viewingVersion.version.versionNumber}
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Saved {formatSavedAt(viewingVersion.version.savedAt)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {viewingVersion.tx.vesselNameImo}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setViewingVersion(null)}
+                  className="text-muted-foreground hover:text-foreground transition-colors mt-0.5"
+                  aria-label="Close"
+                >
+                  <FiX className="h-5 w-5" />
+                </button>
+              </div>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3">
+
+            <CardContent className="flex-1 overflow-y-auto">
+              {(() => {
+                const changelog = buildChangelog(
+                  viewingVersion.version.snapshot as unknown as Record<string, string>,
+                  viewingVersion.tx
+                );
+
+                return changelog.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    No differences from the current version.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-0">
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Fields changed between this version and the current save:
+                    </p>
+                    {changelog.map(({ label, oldVal, newVal }) => (
+                      <div
+                        key={label}
+                        className="border-b border-border/30 py-2.5 last:border-b-0"
+                      >
+                        <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
+                        <div className="flex flex-col gap-1 text-sm">
+                          <span className="text-red-500 dark:text-red-400 line-through break-words">
+                            {oldVal || <em className="not-italic opacity-50">empty</em>}
+                          </span>
+                          <span className="text-green-600 dark:text-green-400 break-words">
+                            {newVal || <em className="not-italic opacity-50">empty</em>}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </CardContent>
+
+            <div className="flex-shrink-0 flex gap-2 p-6 pt-4 border-t border-border">
               <Button
-                className="w-full min-h-[48px]"
-                onClick={() => handleReexportAsIs(reexportEntry)}
+                className="flex-1 min-h-[48px]"
+                onClick={() =>
+                  handleRestoreVersion(viewingVersion.tx, viewingVersion.version)
+                }
               >
-                Re-export as-is
+                Restore this version
               </Button>
               <Button
                 variant="outline"
-                className="w-full min-h-[48px]"
-                onClick={() => handleReexportWithChanges(reexportEntry)}
+                className="min-h-[48px]"
+                onClick={() => setViewingVersion(null)}
               >
-                Make changes first
+                Close
               </Button>
-              <Button
-                variant="ghost"
-                className="w-full min-h-[44px]"
-                onClick={() => setReexportEntry(null)}
-              >
-                Cancel
-              </Button>
-            </CardContent>
+            </div>
           </Card>
         </div>
       )}

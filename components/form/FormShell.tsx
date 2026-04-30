@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FiCheck, FiChevronLeft, FiChevronRight, FiSend } from "react-icons/fi";
 import { Step1TransactionDetails } from "./Step1TransactionDetails";
 import { Step2BunkerNomination } from "./Step2BunkerNomination";
 import { Step3OrderConfirmation } from "./Step3OrderConfirmation";
-import { Step4ReviewExport } from "./Step4ReviewExport";
 import {
   Card,
   CardHeader,
@@ -36,7 +35,6 @@ const STEPS = [
   { number: 1, title: "Transaction Details", description: "Enter shared transaction information" },
   { number: 2, title: "Bunker Nomination", description: "Enter supplier-specific details" },
   { number: 3, title: "Order Confirmation", description: "Enter buyer-specific details" },
-  { number: 4, title: "Review & Export", description: "Review your data and generate documents" },
 ] as const;
 
 const formFieldKeys: FormFieldKey[] = [
@@ -50,6 +48,11 @@ const formFieldKeys: FormFieldKey[] = [
   "agents",
   "physicalSupplier",
   "signatory",
+  "productCount",
+  "product2",
+  "quantity2",
+  "product3",
+  "quantity3",
   "bn_to",
   "bn_attn",
   "bn_sellers",
@@ -57,12 +60,16 @@ const formFieldKeys: FormFieldKey[] = [
   "bn_buyingPrice",
   "bn_paymentTerms",
   "bn_remarks",
+  "bn_buyingPrice2",
+  "bn_buyingPrice3",
   "oc_to",
   "oc_attn",
   "oc_buyers",
   "oc_sellingPrice",
   "oc_paymentTerms",
   "oc_remarks",
+  "oc_sellingPrice2",
+  "oc_sellingPrice3",
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -153,11 +160,7 @@ function StickyActionBar({
   isSubmitting: boolean;
 }) {
   const showBack = currentStep > 1;
-  const showNext = currentStep < 4;
   const isSubmitStep = currentStep === 3;
-
-  // Step 4 has its own action buttons inside Step4ReviewExport — no sticky bar needed
-  if (currentStep === 4 && !showBack) return null;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -179,30 +182,28 @@ function StickyActionBar({
 
         {/* Right side — Next / Submit button */}
         <div className="order-1 flex flex-col gap-2 md:order-2 md:flex-row">
-          {showNext && (
-            <Button
-              onClick={onNext}
-              disabled={isSubmitting}
-              className="w-full min-h-[48px] md:w-auto"
-            >
-              {isSubmitting ? (
-                <>
-                  <span className="mr-1.5 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Saving…
-                </>
-              ) : isSubmitStep ? (
-                <>
-                  Submit
-                  <FiSend className="ml-1 h-4 w-4" />
-                </>
-              ) : (
-                <>
-                  Next
-                  <FiChevronRight className="ml-1 h-4 w-4" />
-                </>
-              )}
-            </Button>
-          )}
+          <Button
+            onClick={onNext}
+            disabled={isSubmitting}
+            className="w-full min-h-[48px] md:w-auto"
+          >
+            {isSubmitting ? (
+              <>
+                <span className="mr-1.5 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Saving…
+              </>
+            ) : isSubmitStep ? (
+              <>
+                Submit
+                <FiSend className="ml-1 h-4 w-4" />
+              </>
+            ) : (
+              <>
+                Next
+                <FiChevronRight className="ml-1 h-4 w-4" />
+              </>
+            )}
+          </Button>
         </div>
       </div>
     </div>
@@ -215,8 +216,9 @@ function StickyActionBar({
 
 export function FormShell() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const stepParam = searchParams.get("step");
-  const initialStep = stepParam ? Math.min(Math.max(Number(stepParam), 1), 4) || 1 : 1;
+  const initialStep = stepParam ? Math.min(Math.max(Number(stepParam), 1), 3) || 1 : 1;
 
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -224,13 +226,12 @@ export function FormShell() {
 
   /**
    * Ref to the active step component's imperative handle.
-   * Steps 1-3 expose a `validate()` method via `useImperativeHandle`.
-   * Step 4 is read-only and has no validation, so the ref will be null.
+   * All three steps expose a `validate()` method via `useImperativeHandle`.
    */
   const stepRef = useRef<StepRef>(null);
 
   const handleNext = useCallback(async () => {
-    if (currentStep >= 4) return;
+    if (currentStep > 3) return;
 
     // If the current step component exposes a validate() method, call it.
     if (stepRef.current) {
@@ -238,9 +239,14 @@ export function FormShell() {
       if (!isValid) return;
     }
 
-    // On step 3, save the transaction before advancing to the review page.
+    // On step 3, save the transaction and redirect to the export page.
     if (currentStep === 3) {
+      if (!token) {
+        toast.error("You must be signed in to save. Please log in again.");
+        return;
+      }
       setIsSubmitting(true);
+      let saveSucceeded = false;
       try {
         const storeState = useFormStore.getState();
         const data = {} as Record<FormFieldKey, string>;
@@ -256,7 +262,7 @@ export function FormShell() {
           method,
           headers: {
             "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(data),
         });
@@ -264,12 +270,13 @@ export function FormShell() {
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           throw new Error(
-            (err as { error?: string }).error || "Failed to save transaction"
+            (err as { error?: string }).error || `Save failed (status ${res.status})`
           );
         }
 
         storeState.setEditingTransactionId(null);
         toast.success(editingId ? "Transaction updated successfully" : "Transaction saved successfully");
+        saveSucceeded = true;
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Failed to save transaction"
@@ -277,10 +284,15 @@ export function FormShell() {
       } finally {
         setIsSubmitting(false);
       }
+
+      // Only redirect to the export page if the save actually succeeded.
+      if (!saveSucceeded) return;
+      router.push("/export");
+      return;
     }
 
     setCurrentStep((s) => s + 1);
-  }, [currentStep, token]);
+  }, [currentStep, token, router]);
 
   const handleBack = useCallback(() => {
     // Back navigation never validates — data is already persisted in Zustand.
@@ -311,9 +323,6 @@ export function FormShell() {
           )}
           {currentStep === 3 && (
             <Step3OrderConfirmation ref={stepRef} />
-          )}
-          {currentStep === 4 && (
-            <Step4ReviewExport />
           )}
         </CardContent>
       </Card>

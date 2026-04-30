@@ -12,6 +12,12 @@ export interface PdfTemplateData {
   agents: string;
   physicalSupplier: string;
   signatory: string;
+  // Multi-product
+  productCount?: string;
+  product2?: string;
+  quantity2?: string;
+  product3?: string;
+  quantity3?: string;
   bn_to: string;
   bn_attn: string;
   bn_sellers: string;
@@ -19,12 +25,16 @@ export interface PdfTemplateData {
   bn_buyingPrice: string;
   bn_paymentTerms: string;
   bn_remarks: string;
+  bn_buyingPrice2?: string;
+  bn_buyingPrice3?: string;
   oc_to: string;
   oc_attn: string;
   oc_buyers: string;
   oc_sellingPrice: string;
   oc_paymentTerms: string;
   oc_remarks: string;
+  oc_sellingPrice2?: string;
+  oc_sellingPrice3?: string;
 }
 
 export function getLogoBase64(): string {
@@ -120,17 +130,17 @@ export const SHARED_CSS = `
   /* Tagline (B20): bold full-width */
   .tagline { font-weight: bold; line-height: 14.5pt; height: 14.5pt; }
 
-  /* Sub-text under vessel (D23): 9pt, indented to col D */
+  /* Sub-text under vessel (D23): 9pt, indented to col D (A36 + B100 + C36 = 172pt) */
   .subtext {
     font-size: 9pt;
-    padding-left: 128.25pt;   /* A(36) + B(56.25) + C(36) = 128.25pt */
+    padding-left: 172pt;
     line-height: 14.5pt;
     height: 14.5pt;
   }
 
-  /* Sign-off */
-  .regards   { font-weight: bold; line-height: 14.5pt; height: 14.5pt; }
-  .signatory { font-weight: normal; line-height: 14.5pt; height: 14.5pt; }
+  /* Sign-off — indented to col A (36pt) to match spec */
+  .regards   { font-weight: bold; line-height: 14.5pt; height: 14.5pt; padding-left: 36pt; }
+  .signatory { font-weight: normal; line-height: 14.5pt; height: 14.5pt; padding-left: 36pt; }
 
   /* ── Page 2 – Notes / Remarks text-box ─────────────────────────── */
   /* TextBox 5: width 479.83pt, starts ~25pt below the logo bottom    */

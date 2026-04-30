@@ -20,13 +20,17 @@ function getUserEmail(request: NextRequest): string | null {
 
 export async function POST(request: NextRequest) {
   try {
+    const userEmail = getUserEmail(request);
+    if (!userEmail) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     if (!clientPromise) {
       const body = await request.json();
       console.log("[mock] Transaction saved:", body);
       return NextResponse.json({ success: true, mock: true });
     }
 
-    const userEmail = getUserEmail(request);
     const body = await request.json();
     const client = await clientPromise;
     const db = client.db(DB_NAME);
@@ -34,8 +38,9 @@ export async function POST(request: NextRequest) {
 
     const result = await collection.insertOne({
       ...body,
-      userEmail: userEmail || "anonymous",
+      userEmail,
       createdAt: new Date(),
+      versionNumber: 1,
     });
 
     return NextResponse.json({ success: true, id: result.insertedId.toString() });
@@ -50,20 +55,22 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const userEmail = getUserEmail(request);
+    if (!userEmail) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     if (!clientPromise) {
       console.log("[mock] Returning empty transactions array");
       return NextResponse.json([]);
     }
 
-    const userEmail = getUserEmail(request);
     const client = await clientPromise;
     const db = client.db(DB_NAME);
     const collection = db.collection(COLLECTION_NAME);
 
-    // Filter by user email — each user only sees their own transactions
-    const filter = userEmail ? { userEmail } : {};
     const transactions = await collection
-      .find(filter)
+      .find({ userEmail })
       .sort({ createdAt: -1 })
       .toArray();
 

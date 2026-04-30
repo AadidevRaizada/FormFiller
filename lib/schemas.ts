@@ -3,8 +3,11 @@ import { z } from "zod";
 // Step 1 — Transaction Details
 export const step1Schema = z.object({
   date: z.string().min(1, "Date is required"),
-  vesselNameImo: z.string().min(1, "Vessel Name & IMO is required"),
-  port: z.string().min(1, "Port is required"),
+  vesselNameImo: z.string().min(1, "Vessel name is required"),
+  port: z
+    .string()
+    .min(1, "Port is required")
+    .refine((v) => v.includes(","), "Both port name and country are required"),
   eta: z.string().min(1, "ETA is required"),
   product: z.string().min(1, "Product is required"),
   quantity: z.string().min(1, "Quantity is required"),

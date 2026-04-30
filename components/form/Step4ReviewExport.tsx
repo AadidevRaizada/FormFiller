@@ -44,6 +44,11 @@ const formFieldKeys: FormFieldKey[] = [
   "agents",
   "physicalSupplier",
   "signatory",
+  "productCount",
+  "product2",
+  "quantity2",
+  "product3",
+  "quantity3",
   "bn_to",
   "bn_attn",
   "bn_sellers",
@@ -51,12 +56,16 @@ const formFieldKeys: FormFieldKey[] = [
   "bn_buyingPrice",
   "bn_paymentTerms",
   "bn_remarks",
+  "bn_buyingPrice2",
+  "bn_buyingPrice3",
   "oc_to",
   "oc_attn",
   "oc_buyers",
   "oc_sellingPrice",
   "oc_paymentTerms",
   "oc_remarks",
+  "oc_sellingPrice2",
+  "oc_sellingPrice3",
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -181,8 +190,16 @@ export function Step4ReviewExport() {
               <FieldRow label="Vessel" value={store.vesselNameImo} />
               <FieldRow label="Port" value={store.port} />
               <FieldRow label="ETA" value={store.eta} />
-              <FieldRow label="Product" value={store.product} />
-              <FieldRow label="Quantity" value={store.quantity} />
+              <FieldRow label="Product 1" value={store.product} />
+              <FieldRow label="Quantity 1" value={store.quantity} />
+              {(store.productCount === "2" || store.productCount === "3") && <>
+                <FieldRow label="Product 2" value={store.product2} />
+                <FieldRow label="Quantity 2" value={store.quantity2} />
+              </>}
+              {store.productCount === "3" && <>
+                <FieldRow label="Product 3" value={store.product3} />
+                <FieldRow label="Quantity 3" value={store.quantity3} />
+              </>}
               <FieldRow label="Delivery Mode" value={store.deliveryMode} />
               <FieldRow label="Agents" value={store.agents} />
               <FieldRow label="Physical Supplier" value={store.physicalSupplier} />
@@ -191,7 +208,11 @@ export function Step4ReviewExport() {
               <FieldRow label="Attn" value={store.bn_attn} />
               <FieldRow label="Sellers" value={store.bn_sellers} />
               <FieldRow label="Suppliers" value={store.bn_suppliers} />
-              <FieldRow label="Buying Price" value={store.bn_buyingPrice} />
+              <FieldRow label="Buying Price 1" value={store.bn_buyingPrice} />
+              {(store.productCount === "2" || store.productCount === "3") &&
+                <FieldRow label="Buying Price 2" value={store.bn_buyingPrice2} />}
+              {store.productCount === "3" &&
+                <FieldRow label="Buying Price 3" value={store.bn_buyingPrice3} />}
               <FieldRow label="Payment Terms" value={store.bn_paymentTerms} />
               <FieldRow label="Remarks" value={store.bn_remarks} />
             </div>
@@ -209,8 +230,16 @@ export function Step4ReviewExport() {
               <FieldRow label="Vessel" value={store.vesselNameImo} />
               <FieldRow label="Port" value={store.port} />
               <FieldRow label="ETA" value={store.eta} />
-              <FieldRow label="Product" value={store.product} />
-              <FieldRow label="Quantity" value={store.quantity} />
+              <FieldRow label="Product 1" value={store.product} />
+              <FieldRow label="Quantity 1" value={store.quantity} />
+              {(store.productCount === "2" || store.productCount === "3") && <>
+                <FieldRow label="Product 2" value={store.product2} />
+                <FieldRow label="Quantity 2" value={store.quantity2} />
+              </>}
+              {store.productCount === "3" && <>
+                <FieldRow label="Product 3" value={store.product3} />
+                <FieldRow label="Quantity 3" value={store.quantity3} />
+              </>}
               <FieldRow label="Delivery Mode" value={store.deliveryMode} />
               <FieldRow label="Agents" value={store.agents} />
               <FieldRow label="Physical Supplier" value={store.physicalSupplier} />
@@ -218,7 +247,11 @@ export function Step4ReviewExport() {
               <FieldRow label="To" value={store.oc_to} />
               <FieldRow label="Attn" value={store.oc_attn} />
               <FieldRow label="Buyers" value={store.oc_buyers} />
-              <FieldRow label="Selling Price" value={store.oc_sellingPrice} />
+              <FieldRow label="Selling Price 1" value={store.oc_sellingPrice} />
+              {(store.productCount === "2" || store.productCount === "3") &&
+                <FieldRow label="Selling Price 2" value={store.oc_sellingPrice2} />}
+              {store.productCount === "3" &&
+                <FieldRow label="Selling Price 3" value={store.oc_sellingPrice3} />}
               <FieldRow label="Payment Terms" value={store.oc_paymentTerms} />
               <FieldRow label="Remarks" value={store.oc_remarks} />
             </div>
