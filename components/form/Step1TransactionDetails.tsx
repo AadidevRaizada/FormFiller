@@ -410,7 +410,7 @@ const Step1TransactionDetails = forwardRef<StepRef>(
           <FormField
             control={form.control}
             name="vesselNameImo"
-            render={({ field: _field }) => (
+            render={() => (
               <FormItem>
                 <FormLabel>Vessel Name & IMO</FormLabel>
                 <FormControl>
@@ -465,7 +465,7 @@ const Step1TransactionDetails = forwardRef<StepRef>(
           <FormField
             control={form.control}
             name="port"
-            render={({ field: _field }) => (
+            render={() => (
               <FormItem>
                 <FormLabel>Port</FormLabel>
                 <FormControl>
