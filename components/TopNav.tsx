@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FiLogOut, FiMenu, FiX, FiFileText, FiClock, FiDownload } from "react-icons/fi";
+import { FiLogOut, FiMenu, FiX, FiFileText, FiClock, FiDownload, FiMic } from "react-icons/fi";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/lib/auth-context";
 
@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { href: "/form", label: "New Form", icon: FiFileText },
   { href: "/export", label: "Export", icon: FiDownload },
   { href: "/history", label: "History", icon: FiClock },
+  { href: "/voice", label: "Voice Fill", icon: FiMic },
 ];
 
 export function TopNav() {
@@ -100,6 +101,16 @@ export function TopNav() {
                   }`}
                 >
                   History
+                </Link>
+                <Link
+                  href="/voice"
+                  className={`hidden md:inline-flex rounded-md px-2.5 py-2 text-sm font-medium transition-colors ${
+                    pathname === "/voice"
+                      ? "text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Voice
                 </Link>
                 <span className="hidden lg:inline text-xs text-muted-foreground px-2 max-w-[180px] truncate">
                   {user.email}
