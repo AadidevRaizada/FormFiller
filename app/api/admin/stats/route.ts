@@ -19,64 +19,45 @@ function getUserEmail(req: NextRequest): string | null {
 
 export async function GET(req: NextRequest) {
   const userEmail = getUserEmail(req);
-  if (!userEmail) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!ADMIN_EMAIL || userEmail !== ADMIN_EMAIL) {
+  if (!userEmail) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ADMIN_EMAIL || userEmail !== ADMIN_EMAIL)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-  if (!clientPromise) {
+  if (!clientPromise)
     return NextResponse.json({ error: "Database not configured" }, { status: 503 });
-  }
 
   const client = await clientPromise;
   const db = client.db(DB_NAME);
 
-  // All users
   const users = await db
     .collection("users")
     .find({}, { projection: { password: 0 } })
     .sort({ createdAt: -1 })
     .toArray();
 
-  // Transaction counts + most recent date per user
   const txAgg = await db
     .collection("transactions")
     .aggregate([
-      {
-        $group: {
-          _id: "$userEmail",
-          count: { $sum: 1 },
-          lastActivity: { $max: "$createdAt" },
-        },
-      },
+      { $group: { _id: "$userEmail", count: { $sum: 1 }, lastActivity: { $max: "$createdAt" } } },
     ])
     .toArray();
 
   const txMap = new Map(
-    txAgg.map((r) => [r._id as string, { count: r.count as number, lastActivity: r.lastActivity as Date }]),
+    txAgg.map((r) => [
+      r._id as string,
+      { count: r.count as number, lastActivity: r.lastActivity as Date },
+    ]),
   );
 
-  // Voice session counts per user
   const vsAgg = await db
     .collection("voice_sessions")
-    .aggregate([
-      {
-        $group: {
-          _id: "$userEmail",
-          count: { $sum: 1 },
-        },
-      },
-    ])
+    .aggregate([{ $group: { _id: "$userEmail", count: { $sum: 1 } } }])
     .toArray();
 
   const vsMap = new Map(vsAgg.map((r) => [r._id as string, r.count as number]));
 
-  // Totals
   const totalTransactions = txAgg.reduce((s, r) => s + (r.count as number), 0);
   const totalVoiceSessions = vsAgg.reduce((s, r) => s + (r.count as number), 0);
 
-  // Build per-user rows
   const rows = users.map((u) => {
     const email = u.email as string;
     const tx = txMap.get(email);
@@ -86,16 +67,11 @@ export async function GET(req: NextRequest) {
       transactionCount: tx?.count ?? 0,
       voiceSessionCount: vsMap.get(email) ?? 0,
       lastActivity: tx?.lastActivity ?? null,
+      lastPayment: (u.lastPayment as string) ?? "",
     };
   });
 
-  // Sort: most active first
   rows.sort((a, b) => b.transactionCount - a.transactionCount);
 
-  return NextResponse.json({
-    totalUsers: users.length,
-    totalTransactions,
-    totalVoiceSessions,
-    users: rows,
-  });
+  return NextResponse.json({ totalUsers: users.length, totalTransactions, totalVoiceSessions, users: rows });
 }
