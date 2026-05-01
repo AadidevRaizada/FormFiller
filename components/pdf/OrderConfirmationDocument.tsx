@@ -100,14 +100,14 @@ const s = StyleSheet.create({
     marginBottom: 10,
   },
   subText: {
-    fontSize: 8.5,
+    fontSize: 10.5,
     color: "#444",
     marginLeft: 140,
     marginBottom: 2,
     lineHeight: 1.4,
   },
   subTextLast: {
-    fontSize: 8.5,
+    fontSize: 10.5,
     color: "#444",
     marginLeft: 140,
     marginBottom: 8,

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FiLogOut, FiMenu, FiX, FiFileText, FiClock, FiDownload, FiMic } from "react-icons/fi";
+import { FiLogOut, FiMenu, FiX, FiFileText, FiClock, FiDownload, FiMic, FiUser, FiActivity } from "react-icons/fi";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/lib/auth-context";
 
@@ -17,8 +17,21 @@ const NAV_LINKS = [
 export function TopNav() {
   const { user, logout, isLoading } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const pathname = usePathname();
+
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    }
+    if (profileOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [profileOpen]);
 
   // Close drawer on route change
   useEffect(() => {
@@ -112,17 +125,47 @@ export function TopNav() {
                 >
                   Voice
                 </Link>
-                <span className="hidden lg:inline text-xs text-muted-foreground px-2 max-w-[180px] truncate">
-                  {user.email}
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="hidden md:inline-flex rounded-md p-2 text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="Sign out"
-                  title="Sign out"
-                >
-                  <FiLogOut className="h-4 w-4" />
-                </button>
+                {/* Avatar + dropdown */}
+                <div className="relative hidden md:block" ref={profileRef}>
+                  <button
+                    onClick={() => setProfileOpen(v => !v)}
+                    className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-sm font-semibold text-primary uppercase hover:bg-primary/25 transition-colors"
+                    aria-label="Profile menu"
+                    title={user.email}
+                  >
+                    {user.email?.[0] ?? "?"}
+                  </button>
+
+                  {profileOpen && (
+                    <div className="absolute right-0 mt-2 w-56 rounded-lg border bg-popover shadow-lg z-50 py-1 text-sm">
+                      <div className="px-3 py-2 border-b">
+                        <p className="font-medium truncate">{user.email}</p>
+                      </div>
+                      <Link
+                        href="/profile"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-muted transition-colors"
+                      >
+                        <FiUser className="h-4 w-4" /> Profile
+                      </Link>
+                      <Link
+                        href="/profile"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-muted transition-colors"
+                      >
+                        <FiActivity className="h-4 w-4" /> Activity Logs
+                      </Link>
+                      <div className="border-t mt-1 pt-1">
+                        <button
+                          onClick={handleLogout}
+                          className="flex w-full items-center gap-2 px-3 py-2 hover:bg-muted text-destructive transition-colors"
+                        >
+                          <FiLogOut className="h-4 w-4" /> Sign out
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             )}
             <ThemeToggle />
@@ -177,8 +220,15 @@ export function TopNav() {
         </nav>
 
         {/* Footer: email + settings */}
-        <div className="border-t px-4 py-4">
-          <div className="flex items-center gap-3">
+        <div className="border-t px-4 py-4 space-y-3">
+          <Link
+            href="/profile"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
+          >
+            <FiUser className="h-4 w-4 shrink-0" />
+            Profile &amp; Logs
+          </Link>
+          <div className="flex items-center gap-3 px-3">
             {/* Avatar */}
             <div className="h-9 w-9 shrink-0 rounded-full bg-primary/15 flex items-center justify-center">
               <span className="text-sm font-semibold text-primary uppercase">

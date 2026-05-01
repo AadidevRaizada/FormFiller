@@ -12,6 +12,7 @@ import {
   FiTrash2,
   FiCheck,
   FiX,
+  FiActivity,
 } from "react-icons/fi";
 import {
   Card,
@@ -25,6 +26,8 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/lib/auth-context";
 
 /* ── Types ────────────────────────────────────────────────────────────────── */
+
+interface DayEntry { date: string; transactions: number; voiceSessions: number }
 
 interface UserRow {
   email: string;
@@ -90,6 +93,9 @@ function AdminContent() {
 
   // Per-row last payment saving state
   const [savingPayment, setSavingPayment] = useState<string | null>(null);
+
+  // Logs modal
+  const [logsEmail, setLogsEmail] = useState<string | null>(null);
 
   const authHeader = useCallback(
     () => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }),
@@ -236,6 +242,11 @@ function AdminContent() {
         <StatCard icon={<FiMic className="h-6 w-6 text-green-500" />} bg="bg-green-500/10" value={data.totalVoiceSessions} label="Voice sessions" />
       </div>
 
+      {/* Logs modal */}
+      {logsEmail && (
+        <UserLogsModal email={logsEmail} token={token!} onClose={() => setLogsEmail(null)} />
+      )}
+
       {/* Users table */}
       <Card>
         <CardHeader>
@@ -259,6 +270,7 @@ function AdminContent() {
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">Last active</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">Last payment</th>
                     <th className="px-4 py-3 text-center font-medium text-muted-foreground">Actions</th>
+                    <th className="px-4 py-3 text-center font-medium text-muted-foreground">Logs</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -274,6 +286,7 @@ function AdminContent() {
                       onCancelDelete={() => setConfirmDelete(null)}
                       onConfirmDelete={() => handleDelete(u.email)}
                       onSavePayment={(v) => handleSavePayment(u.email, v)}
+                      onViewLogs={() => setLogsEmail(u.email)}
                     />
                   ))}
                 </tbody>
@@ -326,6 +339,7 @@ function UserTableRow({
   onCancelDelete,
   onConfirmDelete,
   onSavePayment,
+  onViewLogs,
 }: {
   user: UserRow;
   striped: boolean;
@@ -336,6 +350,7 @@ function UserTableRow({
   onCancelDelete: () => void;
   onConfirmDelete: () => void;
   onSavePayment: (v: string) => void;
+  onViewLogs: () => void;
 }) {
   const [paymentDraft, setPaymentDraft] = useState(user.lastPayment ?? "");
   const [editing, setEditing] = useState(false);
@@ -444,8 +459,176 @@ function UserTableRow({
           </button>
         )}
       </td>
+
+      {/* Logs */}
+      <td className="px-4 py-3.5 text-center">
+        <button
+          onClick={onViewLogs}
+          title="View activity logs"
+          className="rounded p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+        >
+          <FiActivity className="h-4 w-4" />
+        </button>
+      </td>
     </tr>
   );
+}
+
+/* ── User Logs Modal ──────────────────────────────────────────────────────── */
+
+function UserLogsModal({ email, token, onClose }: { email: string; token: string; onClose: () => void }) {
+  const [days, setDays] = useState<DayEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/admin/user-logs?email=${encodeURIComponent(email)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json() as { days: DayEntry[] };
+          setDays(data.days);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [email, token]);
+
+  const totalTx = days.reduce((s, d) => s + d.transactions, 0);
+  const totalVs = days.reduce((s, d) => s + d.voiceSessions, 0);
+
+  const recentActive = [...days]
+    .filter(d => d.transactions > 0 || d.voiceSessions > 0)
+    .reverse()
+    .slice(0, 20);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div
+        className="relative bg-background rounded-xl border shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto m-4"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 bg-background border-b px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-base">Activity Logs</h2>
+            <p className="text-xs text-muted-foreground truncate max-w-xs">{email}</p>
+          </div>
+          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <FiX className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {loading ? (
+            <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
+              <FiLoader className="h-5 w-5 animate-spin" />
+              <span className="text-sm">Loading…</span>
+            </div>
+          ) : (
+            <>
+              {/* Summary */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg border p-3 text-center">
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{totalTx}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Transactions</p>
+                </div>
+                <div className="rounded-lg border p-3 text-center">
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{totalVs}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Voice sessions</p>
+                </div>
+                <div className="rounded-lg border p-3 text-center">
+                  <p className="text-2xl font-bold">{days.filter(d => d.transactions > 0 || d.voiceSessions > 0).length}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Active days</p>
+                </div>
+              </div>
+
+              {/* Contribution grid */}
+              <div className="overflow-x-auto">
+                <AdminContribGrid days={days} />
+              </div>
+
+              {/* Recent list */}
+              {recentActive.length > 0 ? (
+                <div className="rounded-lg border overflow-hidden">
+                  <div className="px-4 py-2.5 border-b bg-muted/30">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recent activity</p>
+                  </div>
+                  <ul>
+                    {recentActive.map(d => (
+                      <li key={d.date} className="flex items-center gap-4 px-4 py-2 border-b last:border-0 text-sm">
+                        <span className="text-muted-foreground w-24 shrink-0 text-xs">{fmtDate(d.date)}</span>
+                        <div className="flex gap-3">
+                          {d.transactions > 0 && (
+                            <span className="flex items-center gap-1.5 text-xs">
+                              <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" />
+                              {d.transactions} tx
+                            </span>
+                          )}
+                          {d.voiceSessions > 0 && (
+                            <span className="flex items-center gap-1.5 text-xs">
+                              <span className="h-2 w-2 rounded-full bg-green-500 inline-block" />
+                              {d.voiceSessions} voice
+                            </span>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">No activity in the last 365 days.</p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminContribGrid({ days }: { days: DayEntry[] }) {
+  const firstDate = new Date(days[0]?.date ?? new Date());
+  const pad = firstDate.getDay();
+  const cells: (DayEntry | null)[] = [...Array(pad).fill(null), ...days];
+  const weeks: (DayEntry | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+  return (
+    <div className="flex gap-[3px]">
+      {weeks.map((week, wi) => (
+        <div key={wi} className="flex flex-col gap-[3px]">
+          {week.map((day, di) => {
+            if (!day) return <div key={di} style={{ width: 11, height: 11 }} />;
+            const total = day.transactions + day.voiceSessions;
+            let bg = "bg-muted";
+            if (total === 1) bg = "bg-blue-200 dark:bg-blue-900";
+            else if (total <= 3) bg = "bg-blue-400 dark:bg-blue-700";
+            else if (total <= 6) bg = "bg-blue-600 dark:bg-blue-500";
+            else if (total > 6) bg = "bg-blue-800 dark:bg-blue-300";
+            return (
+              <div
+                key={di}
+                style={{ width: 11, height: 11 }}
+                title={`${day.date}: ${day.transactions} tx, ${day.voiceSessions} voice`}
+                className={`rounded-[2px] ${bg}`}
+              />
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function fmtDate(iso: string) {
+  return new Date(iso + "T12:00:00").toLocaleDateString("en-GB", {
+    day: "numeric", month: "short", year: "numeric",
+  });
 }
 
 /* ── Badge ────────────────────────────────────────────────────────────────── */
