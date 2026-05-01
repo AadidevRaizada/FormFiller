@@ -130,9 +130,9 @@ export const SHARED_CSS = `
   /* Tagline (B20): bold full-width */
   .tagline { font-weight: bold; line-height: 14.5pt; height: 14.5pt; }
 
-  /* Sub-text under vessel (D23): 9pt, indented to col D (A36 + B100 + C36 = 172pt) */
+  /* Sub-text under vessel (D23): indented to col D (A36 + B100 + C36 = 172pt) */
   .subtext {
-    font-size: 9pt;
+    font-size: 11pt;
     padding-left: 172pt;
     line-height: 14.5pt;
     height: 14.5pt;
